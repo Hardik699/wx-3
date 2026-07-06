@@ -79,10 +79,18 @@ function nextWxId(list: Asset[], systemType?: string): string {
   let max = 0;
 
   for (const a of list) {
-    // Match both old format (WX-001) and new format (WX-L-001)
+    // Match both old format (WX-001) and new format (WX-L-001, WX-D-001, etc.)
     const newFormatMatch = a.id.match(new RegExp(`^WX-${code}-(\\d+)$`));
     if (newFormatMatch) {
       const n = parseInt(newFormatMatch[1], 10);
+      if (!Number.isNaN(n)) max = Math.max(max, n);
+    }
+    
+    // Also check for any manually created IDs that follow the pattern
+    // This ensures we don't create duplicates even if someone manually created WX-D-006
+    const anyFormatMatch = a.id.match(/^WX-[A-Z]-(\d+)$/);
+    if (anyFormatMatch && a.id.startsWith(`WX-${code}-`)) {
+      const n = parseInt(anyFormatMatch[1], 10);
       if (!Number.isNaN(n)) max = Math.max(max, n);
     }
   }
@@ -104,6 +112,7 @@ export default function PCLaptopInfo() {
   const [ramAssets, setRamAssets] = useState<SysAsset[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<Asset | null>(null);
+  const [isManualIdMode, setIsManualIdMode] = useState(false);
   const [form, setForm] = useState({
     id: "",
     systemType: "",
@@ -620,6 +629,7 @@ export default function PCLaptopInfo() {
     if (itemToEdit) {
       // Edit mode - populate form with existing data
       setEditingItem(itemToEdit);
+      setIsManualIdMode(false); // Always auto mode in edit
       setForm({
         id: itemToEdit.id,
         systemType: itemToEdit.systemType || "",
@@ -639,6 +649,7 @@ export default function PCLaptopInfo() {
       // Generate ID with default code for now, will be updated when user selects system type
       const id = nextWxId(currentItems, "");
       setEditingItem(null);
+      setIsManualIdMode(false); // Start with auto mode
       setForm({
         id,
         systemType: "",
@@ -668,8 +679,26 @@ export default function PCLaptopInfo() {
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // In edit mode, always keep the original ID. In add mode, use form.id (which was generated)
-    const recordId = editingItem ? editingItem.id : form.id;
+    console.log('=== SAVE INITIATED ===');
+    console.log('Edit mode:', !!editingItem);
+    console.log('Editing item ID:', editingItem?.id);
+    console.log('Form ID:', form.id);
+
+    // Validate ID is not empty
+    if (!form.id || form.id.trim() === '') {
+      alert('Please enter an ID or select a system type to auto-generate one.');
+      return;
+    }
+
+    // In edit mode, always keep the original ID. In add mode, use form.id (which was generated or manually entered)
+    const recordId = editingItem ? editingItem.id : form.id.trim();
+    console.log('Record ID to use:', recordId);
+
+    // Check for duplicate ID in add mode
+    if (!editingItem && items.some(item => item.id === recordId)) {
+      alert(`ID "${recordId}" already exists! Please use a different ID or switch to Auto Generate mode.`);
+      return;
+    }
 
     const record: Asset = {
       id: recordId,
@@ -710,37 +739,70 @@ export default function PCLaptopInfo() {
         form.ramId2 && form.ramId2 !== "none" ? form.ramId2.trim() : undefined,
     };
 
+    console.log('Record to save:', JSON.stringify(record, null, 2));
+
     let next: Asset[];
     if (editingItem) {
       // Update existing item
       next = items.map((item) => (item.id === editingItem.id ? record : item));
+      console.log('Will update existing item in list');
     } else {
       // Add new item
       next = [record, ...items];
+      console.log('Will add new item to list');
     }
 
     // Save to database API ONLY (no localStorage)
     try {
+      let response;
+      let apiUrl;
+      
       if (editingItem) {
         // Update existing record in database
-        await fetch(`/api/pc-laptop/${record.id}`, {
+        apiUrl = `/api/pc-laptop/${record.id}`;
+        console.log('UPDATE API Call:', apiUrl);
+        console.log('Method: PUT');
+        console.log('Body:', JSON.stringify(record, null, 2));
+        
+        response = await fetch(apiUrl, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(record),
         });
       } else {
         // Create new record in database
-        await fetch("/api/pc-laptop", {
+        apiUrl = '/api/pc-laptop';
+        console.log('CREATE API Call:', apiUrl);
+        console.log('Method: POST');
+        console.log('Body:', JSON.stringify(record, null, 2));
+        
+        response = await fetch(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(record),
         });
       }
+
+      console.log('Response status:', response.status);
+      console.log('Response OK:', response.ok);
+
+      // Check if response is OK
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error Response:', errorData);
+        throw new Error(errorData.error || `Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('API Success Response:', result);
+      
       // Only update state after successful database save
       setItems(next);
+      console.log('State updated successfully');
     } catch (error) {
-      console.error("Failed to save to database:", error);
-      alert("Failed to save to database. Please try again.");
+      console.error("=== SAVE FAILED ===");
+      console.error("Error details:", error);
+      alert(`Failed to save: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return; // Don't update state if save fails
     }
 
@@ -1050,23 +1112,62 @@ export default function PCLaptopInfo() {
                 className="grid grid-cols-1 md:grid-cols-2 gap-4"
               >
                 <div className="space-y-2">
-                  <Label className="text-slate-300">ID</Label>
+                  <Label className="text-slate-300 flex items-center justify-between">
+                    <span>ID</span>
+                    {!editingItem && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (isManualIdMode) {
+                            // Switch to auto-generated
+                            const newId = nextWxId(items, form.systemType);
+                            setForm((s) => ({ ...s, id: newId }));
+                            setIsManualIdMode(false);
+                          } else {
+                            // Switch to manual entry
+                            setForm((s) => ({ ...s, id: '' }));
+                            setIsManualIdMode(true);
+                          }
+                        }}
+                        className="text-xs text-blue-400 hover:text-blue-300"
+                      >
+                        {isManualIdMode ? 'Auto Generate' : 'Manual Entry'}
+                      </Button>
+                    )}
+                    {editingItem && (
+                      <span className="text-xs text-slate-400">(Cannot change ID in edit mode)</span>
+                    )}
+                  </Label>
                   <Input
                     value={form.id}
-                    readOnly
-                    className="bg-slate-800/50 border-slate-700 text-white"
+                    onChange={(e) => setForm((s) => ({ ...s, id: e.target.value }))}
+                    placeholder={isManualIdMode ? "Enter custom ID" : "Auto-generated ID"}
+                    readOnly={!isManualIdMode || !!editingItem}
+                    disabled={!!editingItem}
+                    className={`bg-slate-800/50 border-slate-700 text-white ${
+                      isManualIdMode && !editingItem ? 'border-blue-500' : ''
+                    } ${
+                      editingItem ? 'opacity-60 cursor-not-allowed' : ''
+                    }`}
                   />
+                  {isManualIdMode && !editingItem && form.id && items.some(item => item.id === form.id) && (
+                    <p className="text-xs text-red-400">⚠️ This ID already exists! Please use a different ID.</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-slate-300">System Type</Label>
                   <Select
                     value={form.systemType}
                     onValueChange={(v) => {
-                      // Update system type and regenerate ID if in add mode
-                      if (!editingItem) {
+                      // Update system type
+                      // Only regenerate ID if in auto mode and add mode (not manual entry)
+                      if (!editingItem && !isManualIdMode) {
                         const newId = nextWxId(items, v);
                         setForm((s) => ({ ...s, systemType: v, id: newId }));
                       } else {
+                        // Just update system type, keep existing ID
                         setForm((s) => ({ ...s, systemType: v }));
                       }
                     }}

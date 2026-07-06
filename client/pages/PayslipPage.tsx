@@ -198,6 +198,20 @@ export default function PayslipPage() {
       const retention = record.retention || 0;
       const totalDeductions = record.deductions || 0;
 
+      // Format date from YYYY-MM-DD to DD-MM-YYYY
+      const formatDateToDDMMYYYY = (dateStr: string) => {
+        if (!dateStr || dateStr === "N/A") return "N/A";
+        try {
+          const date = new Date(dateStr);
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          return `${day}-${month}-${year}`;
+        } catch {
+          return dateStr;
+        }
+      };
+
       return {
         companyName: COMPANY_NAME,
         companyAddress: COMPANY_ADDRESS,
@@ -205,7 +219,7 @@ export default function PayslipPage() {
         uanNo: employee.uanNumber || "N/A",
         department: employee.department || "N/A",
         designation: employee.position || "N/A",
-        dateOfJoining: employee.joiningDate || "N/A",
+        dateOfJoining: formatDateToDDMMYYYY(employee.joiningDate) || "N/A",
         employeeCode: employee.employeeId || "N/A",
         esicNo: employee.esic || "N/A",
         bankAccountNo: employee.accountNumber || "N/A",

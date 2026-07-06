@@ -25,11 +25,26 @@ export const SalarySlip: React.FC<SalarySlipProps> = ({ employee, record, leaveR
     };
     fetchLogo();
   }, []);
+  
   const formatCurrency = (val?: number) => {
     return (val || 0).toLocaleString("en-IN", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  };
+
+  // Format date from YYYY-MM-DD to DD-MM-YYYY
+  const formatDateToDDMMYYYY = (dateStr: string) => {
+    if (!dateStr || dateStr === "-" || dateStr === "N/A") return "-";
+    try {
+      const date = new Date(dateStr);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    } catch {
+      return dateStr;
+    }
   };
 
   const earningRows = [
@@ -113,7 +128,7 @@ export const SalarySlip: React.FC<SalarySlipProps> = ({ employee, record, leaveR
             </tr>
             <tr>
               <td style={{ backgroundColor: '#f9fafb', border: '1.5px solid #d1d5db', padding: '10px 14px', fontWeight: '700', color: '#6b7280', fontSize: '11px', verticalAlign: 'middle' }}>Date of Joining</td>
-              <td style={{ border: '1.5px solid #d1d5db', padding: '10px 14px', fontWeight: '600', color: '#4b5563', fontSize: '11px', verticalAlign: 'middle', backgroundColor: '#ffffff' }}>{employee.joiningDate || '-'}</td>
+              <td style={{ border: '1.5px solid #d1d5db', padding: '10px 14px', fontWeight: '600', color: '#4b5563', fontSize: '11px', verticalAlign: 'middle', backgroundColor: '#ffffff' }}>{formatDateToDDMMYYYY(employee.joiningDate)}</td>
               <td style={{ backgroundColor: '#f9fafb', border: '1.5px solid #d1d5db', padding: '10px 14px', fontWeight: '700', color: '#6b7280', fontSize: '11px', verticalAlign: 'middle' }}>Days in Month</td>
               <td style={{ border: '1.5px solid #d1d5db', padding: '10px 14px', fontWeight: '600', color: '#4b5563', fontSize: '11px', verticalAlign: 'middle', backgroundColor: '#ffffff' }}>{record.daysInMonth || 30}</td>
             </tr>

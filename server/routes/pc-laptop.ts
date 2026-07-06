@@ -90,24 +90,39 @@ const updatePCLaptop: RequestHandler = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
+    console.log(`=== UPDATE PC/Laptop Request ===`);
+    console.log(`ID from params: ${id}`);
+    console.log(`Update data:`, JSON.stringify(updateData, null, 2));
+
+    // Find existing record first
+    const existingRecord = await PCLaptop.findOne({ id });
+    console.log(`Existing record found:`, existingRecord ? 'YES' : 'NO');
+    if (existingRecord) {
+      console.log(`Existing record ID: ${existingRecord.id}`);
+    }
+
     const pcLaptop = await PCLaptop.findOneAndUpdate({ id }, updateData, {
       new: true,
       runValidators: true,
     });
 
     if (!pcLaptop) {
+      console.log(`Update failed - PC/Laptop with id ${id} not found in database`);
       return res.status(404).json({
         success: false,
         error: "PC/Laptop record not found",
       });
     }
 
+    console.log(`Update successful - PC/Laptop ${id} updated`);
     res.json({
       success: true,
       data: pcLaptop,
       message: "PC/Laptop record updated successfully",
     });
   } catch (error) {
+    console.error(`=== UPDATE PC/Laptop Error ===`);
+    console.error(`Error:`, error);
     res.status(500).json({
       success: false,
       error:

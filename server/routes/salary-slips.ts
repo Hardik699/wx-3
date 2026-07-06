@@ -60,6 +60,20 @@ async function generatePayslipHTML(employee: any, salaryRecord: any, leaveRecord
   const monthDate = new Date(month + '-01');
   const monthName = monthDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
+  // Format date from YYYY-MM-DD to DD-MM-YYYY
+  const formatDateToDDMMYYYY = (dateStr: string) => {
+    if (!dateStr || dateStr === "N/A") return "N/A";
+    try {
+      const date = new Date(dateStr);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   // Fetch logo from database
   let logoDataUrl = "";
   try {
@@ -153,7 +167,7 @@ table { width:100%; border-collapse:collapse; font-size:11.5px; border-radius:15
 <tr><th>Name</th><td>${employee.fullName}</td><th>UAN No.</th><td>${employee.uanNumber || 'N/A'}</td></tr>
 <tr><th>Department</th><td>${employee.department}</td><th>ESIC No.</th><td>${employee.esic || 'N/A'}</td></tr>
 <tr><th>Designation</th><td>${employee.position}</td><th>Bank A/C No.</th><td>${employee.accountNumber || 'N/A'}</td></tr>
-<tr><th>Date of Joining</th><td>${employee.joiningDate || 'N/A'}</td><th>Days in Month</th><td>${salaryRecord.totalWorkingDays || 30}</td></tr>
+<tr><th>Date of Joining</th><td>${formatDateToDDMMYYYY(employee.joiningDate) || 'N/A'}</td><th>Days in Month</th><td>${salaryRecord.totalWorkingDays || 30}</td></tr>
 <tr><th>Employee Code</th><td colspan="3">${employee.employeeId}</td></tr>
 </table>
 </div>

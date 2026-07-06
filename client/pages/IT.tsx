@@ -302,13 +302,21 @@ export default function ITPage() {
       );
       return;
     }
+    
+    // Validate employee exists and get full details
+    const selectedEmployee = employees.find(e => e.id === employeeId);
+    if (!selectedEmployee || !selectedEmployee.fullName) {
+      alert("Please select a valid employee with a name");
+      return;
+    }
+    
     const cleanEmails = emails.filter((r) => r.email.trim());
 
     const rec: ITRecord = {
       id: editingId || `${Date.now()}`,
       _id: editingId || undefined,
-      employeeId: employee?.employeeId || employeeId,
-      employeeName: employee?.fullName || "",
+      employeeId: selectedEmployee.employeeId || employeeId,
+      employeeName: selectedEmployee.fullName,
       systemId: systemId.trim(),
       tableNumber,
       department,
@@ -372,6 +380,9 @@ export default function ITPage() {
         if (empRes.ok) {
           try {
             const empData = await empRes.json();
+            console.log('=== Employees API Response ===');
+            console.log('Success:', empData.success);
+            console.log('Data length:', empData.data?.length);
             if (empData.success && empData.data) {
               // Map MongoDB _id to id for consistency
               const mappedEmployees = empData.data.map((emp: any) => ({
@@ -380,11 +391,24 @@ export default function ITPage() {
               }));
               console.log('Mapped employees:', mappedEmployees.length);
               console.log('Sample mapped employee:', mappedEmployees[0]);
+              console.log('All employees:', mappedEmployees.map((e: any) => ({ 
+                id: e.id, 
+                employeeId: e.employeeId, 
+                name: e.fullName, 
+                status: e.status 
+              })));
               setEmployees(mappedEmployees);
+            } else {
+              console.error('Employees API returned no data or failed:', empData);
+              setEmployees([]);
             }
           } catch (e) {
-            console.error("Failed to parse employees response. This often happens if the connection is lost during body read or if the response is not valid JSON.", e);
+            console.error("Failed to parse employees response:", e);
+            setEmployees([]);
           }
+        } else {
+          console.error('Employees API request failed:', empRes.status);
+          setEmployees([]);
         }
         if (deptRes.ok) {
           try {
@@ -771,9 +795,13 @@ export default function ITPage() {
               <div className="space-y-2">
                 <Label className="text-slate-300">Employee Name</Label>
                 <div className="text-xs text-slate-400 mb-1">
-                  Debug: {availableEmployees.length} employees available, {employees.length} total, {records.length} records
+                  Debug: {availableEmployees.length} employees available, {employees.length} total ({employees.filter(e => e.status === "active").length} active), {records.length} records
                 </div>
-                {isPreFilled && employeeId ? (
+                {isLoading ? (
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-md p-2 text-slate-400">
+                    Loading employees...
+                  </div>
+                ) : isPreFilled && employeeId ? (
                   <>
                     <Input
                       value={employee?.fullName || ""}
