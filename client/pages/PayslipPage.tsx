@@ -429,7 +429,7 @@ export default function PayslipPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="hidden gap-3 justify-center mt-8 mb-8 no-print" style={{padding: '20px'}}>
+          <div className="flex gap-3 justify-center mt-8 mb-8 no-print" style={{padding: '20px'}}>
             {/* Loading Overlay */}
             {isDownloadingPDF && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -542,6 +542,37 @@ export default function PayslipPage() {
               className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Download PDF
+            </Button>
+            
+            <Button
+              onClick={async () => {
+                try {
+                  toast.info('Generating styled Excel...');
+                  const response = await fetch(`/api/salary-slips/export-excel?employeeId=${employeeId}&month=${month}`);
+                  
+                  if (!response.ok) {
+                    throw new Error('Failed to generate Excel');
+                  }
+
+                  const blob = await response.blob();
+                  const downloadUrl = window.URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = downloadUrl;
+                  link.download = `Payslip_${monthName}.xlsx`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  window.URL.revokeObjectURL(downloadUrl);
+                  toast.success('Excel downloaded successfully!');
+                } catch (error: any) {
+                  console.error('Excel export error:', error);
+                  toast.error('Failed to generate Excel');
+                }
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Download Excel
             </Button>
           </div>
         </div>

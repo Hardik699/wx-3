@@ -7,6 +7,7 @@ import archiver from "archiver";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import PDFDocument from "pdfkit";
+import ExcelJS from "exceljs";
 
 const router = Router();
 
@@ -385,5 +386,755 @@ const bulkDownloadSlips: RequestHandler = async (req, res) => {
   }
 };
 
+// Excel export with full styling - 100% same as PDF
+const exportToStyledExcel: RequestHandler = async (req, res) => {
+  try {
+    const { employeeId, month } = req.query;
+    
+    if (!employeeId || !month || typeof employeeId !== 'string' || typeof month !== 'string') {
+      return res.status(400).json({ success: false, message: 'Employee ID and month required' });
+    }
+
+    // Fetch data
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    const salaryRecord = await SalaryRecord.findOne({ employeeId, month });
+    if (!salaryRecord) {
+      return res.status(404).json({ success: false, message: 'Salary record not found' });
+    }
+
+    const leaveRecord = await LeaveRecord.findOne({ employeeId, month });
+
+    // Format date DD-MM-YYYY
+    const formatDateToDDMMYYYY = (dateStr: string) => {
+      if (!dateStr) return "N/A";
+      try {
+        const date = new Date(dateStr);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+      } catch {
+        return dateStr;
+      }
+    };
+
+    // Create workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Salary Slip', {
+      pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true }
+    });
+
+    // Set column widths
+    worksheet.columns = [
+      { width: 20 }, { width: 20 }, { width: 20 }, { width: 20 }
+    ];
+
+    // Colors matching the PDF
+    const GREEN = '7CB668';
+    const DARK_BLUE = '4A5F7A';
+    const GRAY = '64748B';
+    const LIGHT_GRAY = 'F8FAFC';
+    const WHITE = 'FFFFFF';
+    const BORDER_COLOR = 'CBD5E1';
+
+    let currentRow = 1;
+
+    // === HEADER ===
+    const headerRow = worksheet.getRow(currentRow);
+    headerRow.height = 50;
+    
+    // Logo/Company Name (merged A1:B1)
+    worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
+    const logoCell = worksheet.getCell(`A${currentRow}`);
+    logoCell.value = 'WYZENTIQA XCELLENCE';
+    logoCell.font = { name: 'Inter', size: 16, bold: true, color: { argb: DARK_BLUE } };
+    logoCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    logoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+
+    // Title (merged C1:D1)
+    worksheet.mergeCells(`C${currentRow}:D${currentRow}`);
+    const titleCell = worksheet.getCell(`C${currentRow}`);
+    const monthDate = new Date(month + '-01');
+    const monthName = monthDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    titleCell.value = `SALARY SLIP\n${monthName}`;
+    titleCell.font = { name: 'Inter', size: 11, bold: true, color: { argb: GREEN } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'right', wrapText: true };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+
+    currentRow += 2;
+
+    // === SECTION 01: EMPLOYEE INFORMATION ===
+    // Section Header
+    const sec1HeaderRow = worksheet.getRow(currentRow);
+    sec1HeaderRow.height = 25;
+    worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
+    const sec1Header = worksheet.getCell(`A${currentRow}`);
+    sec1Header.value = '01  EMPLOYEE INFORMATION';
+    sec1Header.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
+    sec1Header.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    sec1Header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_BLUE } };
+    sec1Header.border = {
+      top: { style: 'thin', color: { argb: BORDER_COLOR } },
+      left: { style: 'thin', color: { argb: BORDER_COLOR } },
+      right: { style: 'thin', color: { argb: BORDER_COLOR } },
+      bottom: { style: 'thin', color: { argb: BORDER_COLOR } }
+    };
+
+    currentRow++;
+
+    // Employee Info Data
+    const empInfo = [
+      ['Name', employee.fullName, 'UAN No.', employee.uanNumber || 'N/A'],
+      ['Department', employee.department, 'ESIC No.', employee.esic || 'N/A'],
+      ['Designation', employee.position, 'Bank A/C No.', employee.accountNumber || 'N/A'],
+      ['Date of Joining', formatDateToDDMMYYYY(employee.joiningDate), 'Days in Month', salaryRecord.totalWorkingDays || 30],
+    ];
+
+    empInfo.forEach(rowData => {
+      const row = worksheet.getRow(currentRow);
+      row.height = 20;
+      
+      // Label 1
+      const cell1 = worksheet.getCell(`A${currentRow}`);
+      cell1.value = rowData[0];
+      cell1.font = { name: 'Inter', size: 10, bold: true, color: { argb: GRAY } };
+      cell1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT_GRAY } };
+      cell1.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      cell1.border = {
+        top: { style: 'thin', color: { argb: BORDER_COLOR } },
+        left: { style: 'thin', color: { argb: BORDER_COLOR } },
+        right: { style: 'thin', color: { argb: BORDER_COLOR } },
+        bottom: { style: 'thin', color: { argb: BORDER_COLOR } }
+      };
+
+      // Value 1
+      const cell2 = worksheet.getCell(`B${currentRow}`);
+      cell2.value = rowData[1];
+      cell2.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+      cell2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+      cell2.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      cell2.border = {
+        top: { style: 'thin', color: { argb: BORDER_COLOR } },
+        left: { style: 'thin', color: { argb: BORDER_COLOR } },
+        right: { style: 'thin', color: { argb: BORDER_COLOR } },
+        bottom: { style: 'thin', color: { argb: BORDER_COLOR } }
+      };
+
+      // Label 2
+      const cell3 = worksheet.getCell(`C${currentRow}`);
+      cell3.value = rowData[2];
+      cell3.font = { name: 'Inter', size: 10, bold: true, color: { argb: GRAY } };
+      cell3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT_GRAY } };
+      cell3.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      cell3.border = {
+        top: { style: 'thin', color: { argb: BORDER_COLOR } },
+        left: { style: 'thin', color: { argb: BORDER_COLOR } },
+        right: { style: 'thin', color: { argb: BORDER_COLOR } },
+        bottom: { style: 'thin', color: { argb: BORDER_COLOR } }
+      };
+
+      // Value 2
+      const cell4 = worksheet.getCell(`D${currentRow}`);
+      cell4.value = rowData[3];
+      cell4.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+      cell4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+      cell4.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      cell4.border = {
+        top: { style: 'thin', color: { argb: BORDER_COLOR } },
+        left: { style: 'thin', color: { argb: BORDER_COLOR } },
+        right: { style: 'thin', color: { argb: BORDER_COLOR } },
+        bottom: { style: 'thin', color: { argb: BORDER_COLOR } }
+      };
+
+      currentRow++;
+    });
+
+    // Employee Code row
+    const empCodeRow = worksheet.getRow(currentRow);
+    empCodeRow.height = 20;
+    const empCodeLabel = worksheet.getCell(`A${currentRow}`);
+    empCodeLabel.value = 'Employee Code';
+    empCodeLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: GRAY } };
+    empCodeLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT_GRAY } };
+    empCodeLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    empCodeLabel.border = {
+      top: { style: 'thin', color: { argb: BORDER_COLOR } },
+      left: { style: 'thin', color: { argb: BORDER_COLOR } },
+      right: { style: 'thin', color: { argb: BORDER_COLOR } },
+      bottom: { style: 'thin', color: { argb: BORDER_COLOR } }
+    };
+
+    worksheet.mergeCells(`B${currentRow}:D${currentRow}`);
+    const empCodeValue = worksheet.getCell(`B${currentRow}`);
+    empCodeValue.value = employee.employeeId;
+    empCodeValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+    empCodeValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT_GRAY } };
+    empCodeValue.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    empCodeValue.border = {
+      top: { style: 'thin', color: { argb: BORDER_COLOR } },
+      left: { style: 'thin', color: { argb: BORDER_COLOR } },
+      right: { style: 'thin', color: { argb: BORDER_COLOR } },
+      bottom: { style: 'thin', color: { argb: BORDER_COLOR } }
+    };
+
+    currentRow += 2;
+
+    // === SECTION 02: LEAVE DETAILS ===
+    const sec2HeaderRow = worksheet.getRow(currentRow);
+    sec2HeaderRow.height = 25;
+    worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
+    const sec2Header = worksheet.getCell(`A${currentRow}`);
+    sec2Header.value = '02  LEAVE DETAILS';
+    sec2Header.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
+    sec2Header.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    sec2Header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_BLUE } };
+    sec2Header.border = {
+      top: { style: 'thin', color: { argb: BORDER_COLOR } },
+      left: { style: 'thin', color: { argb: BORDER_COLOR } },
+      right: { style: 'thin', color: { argb: BORDER_COLOR } },
+      bottom: { style: 'thin', color: { argb: BORDER_COLOR } }
+    };
+
+    currentRow++;
+
+    // Leave table header
+    const leaveHeaderRow = worksheet.getRow(currentRow);
+    leaveHeaderRow.height = 20;
+    ['Leave Type', 'Total in Account', 'Availed', 'Subsisting'].forEach((header, idx) => {
+      const cell = worksheet.getCell(currentRow, idx + 1);
+      cell.value = header;
+      cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: WHITE } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: header === 'Availed' ? GREEN : DARK_BLUE } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: BORDER_COLOR } },
+        left: { style: 'thin', color: { argb: BORDER_COLOR } },
+        right: { style: 'thin', color: { argb: BORDER_COLOR } },
+        bottom: { style: 'thin', color: { argb: BORDER_COLOR } }
+      };
+    });
+
+    currentRow++;
+
+    // Leave data
+    const leaves = [
+      { type: 'PL', total: leaveRecord?.plTotalLeaveInAccount || 0, availed: leaveRecord?.plLeaveAvailed || 0, subsisting: leaveRecord?.plSubsistingLeave || 0 },
+      { type: 'CL', total: leaveRecord?.clTotalLeaveInAccount || 0, availed: leaveRecord?.clLeaveAvailed || 0, subsisting: leaveRecord?.clSubsistingLeave || 0 },
+      { type: 'SL', total: leaveRecord?.slTotalLeaveInAccount || 0, availed: leaveRecord?.slLeaveAvailed || 0, subsisting: leaveRecord?.slSubsistingLeave || 0 }
+    ];
+
+    leaves.forEach(leave => {
+      const row = worksheet.getRow(currentRow);
+      row.height = 20;
+      
+      [leave.type, leave.total.toFixed(1), leave.availed.toFixed(1), leave.subsisting.toFixed(1)].forEach((val, idx) => {
+        const cell = worksheet.getCell(currentRow, idx + 1);
+        cell.value = val;
+        cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: idx === 2 ? GREEN : '1E293B' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: BORDER_COLOR } },
+          left: { style: 'thin', color: { argb: BORDER_COLOR } },
+          right: { style: 'thin', color: { argb: BORDER_COLOR } },
+          bottom: { style: 'thin', color: { argb: BORDER_COLOR } }
+        };
+      });
+
+      currentRow++;
+    });
+
+    // Generate and send file
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${employee.fullName.replace(/[^a-zA-Z0-9]/g, '_')}_${month}_Salary_Slip.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (error) {
+    console.error('Excel export error:', error);
+    res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to export' });
+  }
+};
+
 router.get("/bulk-download", bulkDownloadSlips);
+
+// Helper function to generate styled Excel for one employee (reusable)
+async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, leaveRecord: any, month: string): Promise<Buffer> {
+  const formatDateToDDMMYYYY = (dateStr: string) => {
+    if (!dateStr) return "N/A";
+    try {
+      const date = new Date(dateStr);
+      const day = String(date.getDate()).padStart(2, '0');
+      const monthNum = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${monthNum}-${year}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Salary Slip', {
+    pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true }
+  });
+
+  worksheet.columns = [{ width: 18 }, { width: 14 }, { width: 14 }, { width: 18 }, { width: 14 }];
+
+  const GREEN = '7CB668';
+  const DARK_BLUE = '4A5F7A';
+  const GRAY = '64748B';
+  const LIGHT_GRAY = 'F8FAFC';
+  const WHITE = 'FFFFFF';
+  const BORDER_COLOR = 'CBD5E1';
+
+  let currentRow = 1;
+
+  // Header
+  const headerRow = worksheet.getRow(currentRow);
+  headerRow.height = 50;
+  worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
+  const logoCell = worksheet.getCell(`A${currentRow}`);
+  logoCell.value = 'WYZENTIQA XCELLENCE';
+  logoCell.font = { name: 'Inter', size: 16, bold: true, color: { argb: DARK_BLUE } };
+  logoCell.alignment = { vertical: 'middle', horizontal: 'left' };
+  logoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+
+  worksheet.mergeCells(`C${currentRow}:D${currentRow}`);
+  const titleCell = worksheet.getCell(`C${currentRow}`);
+  const monthDate = new Date(month + '-01');
+  const monthName = monthDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  titleCell.value = `SALARY SLIP\n${monthName}`;
+  titleCell.font = { name: 'Inter', size: 11, bold: true, color: { argb: GREEN } };
+  titleCell.alignment = { vertical: 'middle', horizontal: 'right', wrapText: true };
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+
+  currentRow += 2;
+
+  // Section 01
+  const sec1HeaderRow = worksheet.getRow(currentRow);
+  sec1HeaderRow.height = 25;
+  worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
+  const sec1Header = worksheet.getCell(`A${currentRow}`);
+  sec1Header.value = '01  EMPLOYEE INFORMATION';
+  sec1Header.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
+  sec1Header.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  sec1Header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_BLUE } };
+  sec1Header.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  currentRow++;
+
+  const empInfo = [
+    ['Name', employee.fullName, 'UAN No.', employee.uanNumber || 'N/A'],
+    ['Department', employee.department, 'ESIC No.', employee.esic || 'N/A'],
+    ['Designation', employee.position, 'Bank A/C No.', employee.accountNumber || 'N/A'],
+    ['Date of Joining', formatDateToDDMMYYYY(employee.joiningDate), 'Days in Month', salaryRecord.totalWorkingDays || 30],
+  ];
+
+  empInfo.forEach(rowData => {
+    const row = worksheet.getRow(currentRow);
+    row.height = 20;
+    for (let i = 0; i < 4; i++) {
+      const cell = worksheet.getCell(currentRow, i + 1);
+      cell.value = rowData[i];
+      cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: i % 2 === 0 ? GRAY : '1E293B' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? LIGHT_GRAY : WHITE } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      cell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+    }
+    currentRow++;
+  });
+
+  const empCodeRow = worksheet.getRow(currentRow);
+  empCodeRow.height = 20;
+  const empCodeLabel = worksheet.getCell(`A${currentRow}`);
+  empCodeLabel.value = 'Employee Code';
+  empCodeLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: GRAY } };
+  empCodeLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT_GRAY } };
+  empCodeLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  empCodeLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  worksheet.mergeCells(`B${currentRow}:D${currentRow}`);
+  const empCodeValue = worksheet.getCell(`B${currentRow}`);
+  empCodeValue.value = employee.employeeId;
+  empCodeValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  empCodeValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT_GRAY } };
+  empCodeValue.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  empCodeValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  currentRow += 2;
+
+  // Section 02
+  const sec2HeaderRow = worksheet.getRow(currentRow);
+  sec2HeaderRow.height = 25;
+  worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
+  const sec2Header = worksheet.getCell(`A${currentRow}`);
+  sec2Header.value = '02  LEAVE DETAILS';
+  sec2Header.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
+  sec2Header.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  sec2Header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_BLUE } };
+  sec2Header.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  currentRow++;
+
+  const leaveHeaderRow = worksheet.getRow(currentRow);
+  leaveHeaderRow.height = 20;
+  ['Leave Type', 'Total in Account', 'Availed', 'Subsisting'].forEach((header, idx) => {
+    const cell = worksheet.getCell(currentRow, idx + 1);
+    cell.value = header;
+    cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: WHITE } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: header === 'Availed' ? GREEN : DARK_BLUE } };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+  });
+
+  currentRow++;
+
+  const leaves = [
+    { type: 'PL', total: leaveRecord?.plTotalLeaveInAccount || 0, availed: leaveRecord?.plLeaveAvailed || 0, subsisting: leaveRecord?.plSubsistingLeave || 0 },
+    { type: 'CL', total: leaveRecord?.clTotalLeaveInAccount || 0, availed: leaveRecord?.clLeaveAvailed || 0, subsisting: leaveRecord?.clSubsistingLeave || 0 },
+    { type: 'SL', total: leaveRecord?.slTotalLeaveInAccount || 0, availed: leaveRecord?.slLeaveAvailed || 0, subsisting: leaveRecord?.slSubsistingLeave || 0 }
+  ];
+
+  leaves.forEach(leave => {
+    const row = worksheet.getRow(currentRow);
+    row.height = 20;
+    [leave.type, leave.total.toFixed(1), leave.availed.toFixed(1), leave.subsisting.toFixed(1)].forEach((val, idx) => {
+      const cell = worksheet.getCell(currentRow, idx + 1);
+      cell.value = val;
+      cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: idx === 2 ? GREEN : '1E293B' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+    });
+    currentRow++;
+  });
+
+  // Summary rows
+  const totalLeavesTaken = (leaveRecord?.plLeaveAvailed || 0) + (leaveRecord?.clLeaveAvailed || 0) + (leaveRecord?.slLeaveAvailed || 0);
+  const totalLwp = (leaveRecord?.plLwp || 0) + (leaveRecord?.clLwp || 0) + (leaveRecord?.slLwp || 0);
+
+  // Total Leaves Taken row
+  const totalLeavesRow = worksheet.getRow(currentRow);
+  totalLeavesRow.height = 20;
+  const totalLeavesLabel = worksheet.getCell(currentRow, 1);
+  totalLeavesLabel.value = 'Total Leaves Taken';
+  totalLeavesLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  totalLeavesLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
+  totalLeavesLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  totalLeavesLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  const totalLeavesValue = worksheet.getCell(currentRow, 2);
+  totalLeavesValue.value = totalLeavesTaken.toFixed(1);
+  totalLeavesValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  totalLeavesValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
+  totalLeavesValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  totalLeavesValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  worksheet.mergeCells(currentRow, 3, currentRow, 3);
+  const lwpLabel = worksheet.getCell(currentRow, 3);
+  lwpLabel.value = 'Total Leave Without Pay (LWP)';
+  lwpLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  lwpLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
+  lwpLabel.alignment = { vertical: 'middle', horizontal: 'center' };
+  lwpLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  const lwpValue = worksheet.getCell(currentRow, 4);
+  lwpValue.value = totalLwp.toFixed(1);
+  lwpValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  lwpValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
+  lwpValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  lwpValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  currentRow++;
+
+  // Total Present Days row
+  const presentDaysRow = worksheet.getRow(currentRow);
+  presentDaysRow.height = 20;
+  const presentDaysLabel = worksheet.getCell(currentRow, 1);
+  presentDaysLabel.value = 'Total Present Days';
+  presentDaysLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  presentDaysLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
+  presentDaysLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  presentDaysLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  const presentDaysValue = worksheet.getCell(currentRow, 2);
+  presentDaysValue.value = (salaryRecord.actualWorkingDays || 0).toFixed(1);
+  presentDaysValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  presentDaysValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
+  presentDaysValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  presentDaysValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  worksheet.mergeCells(currentRow, 3, currentRow, 3);
+  const payableDaysLabel = worksheet.getCell(currentRow, 3);
+  payableDaysLabel.value = 'Total Days Payable';
+  payableDaysLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  payableDaysLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
+  payableDaysLabel.alignment = { vertical: 'middle', horizontal: 'center' };
+  payableDaysLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  const payableDaysValue = worksheet.getCell(currentRow, 4);
+  payableDaysValue.value = (salaryRecord.actualWorkingDays || 0).toFixed(1);
+  payableDaysValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  payableDaysValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
+  payableDaysValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  payableDaysValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  currentRow++;
+
+  currentRow += 2;
+
+  // === SECTION 03: SALARY DETAILS ===
+  const sec3HeaderRow = worksheet.getRow(currentRow);
+  sec3HeaderRow.height = 25;
+  worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
+  const sec3Header = worksheet.getCell(`A${currentRow}`);
+  sec3Header.value = '03  SALARY DETAILS';
+  sec3Header.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
+  sec3Header.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  sec3Header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_BLUE } };
+  sec3Header.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  currentRow++;
+
+  // Earnings and Deductions headers
+  const salaryHeaderRow = worksheet.getRow(currentRow);
+  salaryHeaderRow.height = 25;
+  
+  // Earnings header (A-C, 3 columns)
+  worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+  const earningsHeader = worksheet.getCell(`A${currentRow}`);
+  earningsHeader.value = 'EARNINGS';
+  earningsHeader.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
+  earningsHeader.alignment = { vertical: 'middle', horizontal: 'center' };
+  earningsHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '546E7A' } };
+  earningsHeader.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  // Deductions header (D-E, 2 columns)
+  worksheet.mergeCells(`D${currentRow}:E${currentRow}`);
+  const deductionsHeader = worksheet.getCell(`D${currentRow}`);
+  deductionsHeader.value = 'DEDUCTIONS';
+  deductionsHeader.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
+  deductionsHeader.alignment = { vertical: 'middle', horizontal: 'center' };
+  deductionsHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '81C784' } };
+  deductionsHeader.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  currentRow++;
+
+  // Column headers
+  const colHeaderRow = worksheet.getRow(currentRow);
+  colHeaderRow.height = 20;
+  ['Component', 'Actual (₹)', 'Earned (₹)', 'Component', 'Amount (₹)'].forEach((header, idx) => {
+    const colIdx = idx < 3 ? idx + 1 : idx;
+    const cell = worksheet.getCell(currentRow, colIdx);
+    cell.value = header;
+    cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: WHITE } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx < 3 ? '546E7A' : '81C784' } };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+  });
+
+  currentRow++;
+
+  // Earnings and Deductions data
+  const formatCurrency = (val?: number) => (val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const earningsAll = [
+    { label: 'Basic', actual: salaryRecord.basic, earned: salaryRecord.basicEarned },
+    { label: 'HRA', actual: salaryRecord.hra, earned: salaryRecord.hraEarned },
+    { label: 'Conveyance', actual: salaryRecord.conveyance, earned: salaryRecord.conveyanceEarned },
+    { label: 'Sp. Allowance', actual: salaryRecord.specialAllowance, earned: salaryRecord.specialAllowanceEarned },
+    { label: 'Bonus', actual: salaryRecord.bonus, earned: salaryRecord.bonusEarned },
+    { label: 'Incentive', actual: salaryRecord.incentive, earned: salaryRecord.incentiveEarned },
+    { label: 'Incentive 2', actual: salaryRecord.incentive2, earned: salaryRecord.incentive2Earned },
+    { label: 'Adjustment', actual: salaryRecord.adjustment, earned: salaryRecord.adjustmentEarned },
+    { label: 'Retention', actual: salaryRecord.retentionEarning, earned: salaryRecord.retentionEarningEarned },
+    { label: 'Advance', actual: salaryRecord.advanceEarning, earned: salaryRecord.advanceEarningEarned },
+  ];
+
+  const deductionsAll = [
+    { label: 'PF', amount: salaryRecord.pf },
+    { label: 'ESIC', amount: salaryRecord.esic },
+    { label: 'PT', amount: salaryRecord.pt },
+    { label: 'TDS', amount: salaryRecord.tds },
+    { label: 'Retention', amount: salaryRecord.retention },
+    { label: 'Advance', amount: salaryRecord.advanceAnyDeduction },
+    { label: 'Adjustment', amount: salaryRecord.adjustmentDeduction },
+  ];
+
+  // Filter non-zero entries
+  const earnings = earningsAll.filter(e => e.actual !== 0 || e.earned !== 0);
+  const deductions = deductionsAll.filter(d => d.amount !== 0);
+
+  const maxRows = Math.max(earnings.length, deductions.length);
+
+  for (let i = 0; i < maxRows; i++) {
+    const row = worksheet.getRow(currentRow);
+    row.height = 20;
+
+    // Earnings columns (3 columns: Component, Actual, Earned)
+    if (i < earnings.length) {
+      const labelCell = worksheet.getCell(currentRow, 1);
+      labelCell.value = earnings[i].label;
+      labelCell.font = { name: 'Inter', size: 10, bold: false, color: { argb: '334155' } };
+      labelCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+      labelCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+      const actualCell = worksheet.getCell(currentRow, 2);
+      actualCell.value = formatCurrency(earnings[i].actual);
+      actualCell.font = { name: 'Inter', size: 10, bold: false, color: { argb: '334155' } };
+      actualCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      actualCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+      actualCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+      const earnedCell = worksheet.getCell(currentRow, 3);
+      earnedCell.value = formatCurrency(earnings[i].earned);
+      earnedCell.font = { name: 'Inter', size: 10, bold: false, color: { argb: '334155' } };
+      earnedCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      earnedCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+      earnedCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+    }
+
+    // Deductions columns (2 columns: Component, Amount)
+    if (i < deductions.length) {
+      const labelCell = worksheet.getCell(currentRow, 4);
+      labelCell.value = deductions[i].label;
+      labelCell.font = { name: 'Inter', size: 10, bold: false, color: { argb: '334155' } };
+      labelCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+      labelCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+      const valueCell = worksheet.getCell(currentRow, 5);
+      valueCell.value = formatCurrency(deductions[i].amount);
+      valueCell.font = { name: 'Inter', size: 10, bold: false, color: { argb: '334155' } };
+      valueCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      valueCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+      valueCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+    }
+
+    currentRow++;
+  }
+
+  // Total row (now with 5 columns)
+  const totalRow = worksheet.getRow(currentRow);
+  totalRow.height = 22;
+
+  const grossEarningsLabel = worksheet.getCell(currentRow, 1);
+  grossEarningsLabel.value = 'Gross Earnings';
+  grossEarningsLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  grossEarningsLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  grossEarningsLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF3E8' } };
+  grossEarningsLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  const grossActualValue = worksheet.getCell(currentRow, 2);
+  grossActualValue.value = formatCurrency(salaryRecord.actualGross);
+  grossActualValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  grossActualValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  grossActualValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF3E8' } };
+  grossActualValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  const grossEarnedValue = worksheet.getCell(currentRow, 3);
+  grossEarnedValue.value = formatCurrency(salaryRecord.earnedGross);
+  grossEarnedValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  grossEarnedValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  grossEarnedValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF3E8' } };
+  grossEarnedValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  const totalDeductionsLabel = worksheet.getCell(currentRow, 4);
+  totalDeductionsLabel.value = 'Total Deductions';
+  totalDeductionsLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  totalDeductionsLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  totalDeductionsLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF3E8' } };
+  totalDeductionsLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  const totalDeductionsValue = worksheet.getCell(currentRow, 5);
+  totalDeductionsValue.value = formatCurrency(salaryRecord.totalDeduction);
+  totalDeductionsValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  totalDeductionsValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  totalDeductionsValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF3E8' } };
+  totalDeductionsValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  currentRow += 2;
+
+  // Net Salary row
+  const netSalaryRow = worksheet.getRow(currentRow);
+  netSalaryRow.height = 30;
+
+  worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
+  const netSalaryLabel = worksheet.getCell(`A${currentRow}`);
+  netSalaryLabel.value = '04  NET SALARY CREDITED';
+  netSalaryLabel.font = { name: 'Inter', size: 12, bold: true, color: { argb: WHITE } };
+  netSalaryLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  netSalaryLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_BLUE } };
+  netSalaryLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  worksheet.mergeCells(`C${currentRow}:D${currentRow}`);
+  const netSalaryValue = worksheet.getCell(`C${currentRow}`);
+  netSalaryValue.value = `₹ ${formatCurrency(salaryRecord.netSalary)}`;
+  netSalaryValue.font = { name: 'Inter', size: 16, bold: true, color: { argb: WHITE } };
+  netSalaryValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  netSalaryValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN } };
+  netSalaryValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+// Bulk Excel export - All employees in ZIP
+const bulkExcelExport: RequestHandler = async (req, res) => {
+  try {
+    const { month } = req.query;
+    if (!month || typeof month !== 'string') {
+      return res.status(400).json({ success: false, message: 'Month parameter required (YYYY-MM)' });
+    }
+
+    console.log(`Generating bulk Excel slips for: ${month}`);
+    const employees = await Employee.find({ status: 'active' });
+    if (employees.length === 0) {
+      return res.status(404).json({ success: false, message: 'No active employees' });
+    }
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    res.attachment(`All_Salary_Slips_Excel_${month}.zip`);
+    res.setHeader('Content-Type', 'application/zip');
+    archive.pipe(res);
+
+    let processed = 0, skipped = 0;
+    
+    for (const employee of employees) {
+      try {
+        const salaryRecord = await SalaryRecord.findOne({ employeeId: employee._id.toString(), month });
+        if (!salaryRecord) { 
+          skipped++; 
+          continue;
+        }
+        
+        const leaveRecord = await LeaveRecord.findOne({ employeeId: employee._id.toString(), month });
+        const excelBuffer = await generateStyledExcelForEmployee(employee, salaryRecord, leaveRecord, month);
+        
+        archive.append(excelBuffer, { name: `${employee.fullName.replace(/[^a-zA-Z0-9]/g, '_')}_${month}.xlsx` });
+        processed++;
+        console.log(`Processed Excel: ${employee.fullName}`);
+      } catch (error) {
+        console.error(`Error generating Excel for: ${employee.fullName}`, error);
+        skipped++;
+      }
+    }
+
+    console.log(`Complete: ${processed} Excel files processed, ${skipped} skipped`);
+    await archive.finalize();
+  } catch (error) {
+    console.error('Bulk Excel export error:', error);
+    res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed' });
+  }
+};
+
+router.get("/bulk-download", bulkDownloadSlips);
+router.get("/bulk-excel-export", bulkExcelExport);
+router.get("/export-excel", exportToStyledExcel);
 export { router as salarySlipsRouter };
