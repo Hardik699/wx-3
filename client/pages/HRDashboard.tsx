@@ -4121,50 +4121,6 @@ Generated on: ${new Date().toLocaleString()}
                   Download All Slips as ZIP
                 </Button>
 
-                <Button
-                  onClick={async () => {
-                    if (!bulkMonth || !bulkYear) {
-                      toast.error('Please select both month and year');
-                      return;
-                    }
-
-                    try {
-                      setIsBulkDownloading(true);
-                      toast.info('Generating all Excel salary slips... This may take a while.');
-
-                      const monthStr = `${bulkYear}-${bulkMonth}`;
-                      const response = await fetch(`/api/salary-slips/bulk-excel-export?month=${monthStr}`);
-
-                      if (!response.ok) {
-                        const error = await response.json();
-                        throw new Error(error.message || 'Failed to generate Excel slips');
-                      }
-
-                      const blob = await response.blob();
-                      const url = window.URL.createObjectURL(blob);
-                      const link = document.createElement('a');
-                      link.href = url;
-                      link.download = `All_Salary_Slips_Excel_${monthStr}.zip`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                      window.URL.revokeObjectURL(url);
-
-                      toast.success('All Excel salary slips downloaded successfully!');
-                    } catch (error: any) {
-                      console.error('Error downloading Excel slips:', error);
-                      toast.error(error.message || 'Failed to download Excel salary slips');
-                    } finally {
-                      setIsBulkDownloading(false);
-                    }
-                  }}
-                  disabled={!bulkMonth || !bulkYear || isBulkDownloading}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download All Slips as Excel (ZIP)
-                </Button>
-
                 <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
                   <h4 className="text-sm font-medium text-white mb-2">Note:</h4>
                   <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside">
@@ -4391,6 +4347,7 @@ Generated on: ${new Date().toLocaleString()}
                         }
                         size="sm"
                         className={`${employeeDetailModal.activeTab === "salary" ? "bg-blue-500 text-white" : "text-slate-300 hover:text-white"}`}
+                        hidden
                       >
                         <DollarSign className="h-4 w-4 mr-2" />
                         Salary

@@ -146,8 +146,7 @@ table { width:100%; border-collapse:collapse; font-size:11.5px; border-radius:15
 .sal-tbl .tot td { background:#eaf3e8; font-weight:700; color:#6A7D97; }
 .sal-tbl tr.filler td { border-left:1px solid #dce3ea; border-right:1px solid #dce3ea; border-top:none; border-bottom:none; padding:10px; }
 .net-bar { display:grid; grid-template-columns:60% 40%; margin-top:18px; border-radius:15px; overflow:hidden; border:2px solid #cbd5e1; }
-.net-lbl { background:#4a5f7a; color:#fff; padding:14px 18px; font-size:14px; font-weight:700; display:flex; align-items:center; gap:10px; text-transform:uppercase; letter-spacing:.4px; }
-.net-lbl .n4 { font-size:18px; font-weight:900; background:#7cb668; padding:5px 11px; border-radius:4px; }
+.net-lbl { background:#4a5f7a; color:#fff; padding:12px 18px; font-size:11px; font-weight:700; display:block; text-transform:uppercase; letter-spacing:.4px; line-height:1.5; }
 .net-amt { background:#7cb668; color:#fff; padding:14px; text-align:center; font-size:24px; font-weight:900; display:flex; align-items:center; justify-content:center; }
 .slip-foot { text-align:center; padding:16px 28px; border-top:2px solid #cbd5e1; margin-top:12px; background:#fafafa; }
 .slip-foot h3 { color:#1e293b; font-size:14px; font-weight:800; margin-bottom:3px; }
@@ -220,7 +219,7 @@ table { width:100%; border-collapse:collapse; font-size:11.5px; border-radius:15
 </table></div></div>
 </div>
 <div class="net-bar">
-<div class="net-lbl"><span class="n4">04</span> Net Salary Credited</div>
+<div class="net-lbl">NET SALARY CREDITED<br/><span style="font-size:9px;font-weight:500;text-transform:capitalize;">(${convertNumberToWords(Math.round(((salaryRecord.basicEarned||0)+(salaryRecord.hraEarned||0)+(salaryRecord.conveyanceEarned||0)+(salaryRecord.specialAllowanceEarned||0)+(salaryRecord.bonusEarned||0)+(salaryRecord.incentiveEarned||0)+(salaryRecord.incentive2Earned||0)+(salaryRecord.adjustmentEarned||salaryRecord.adjustment||0)+(salaryRecord.retentionBonus||0)+(salaryRecord.advanceAnyEarned||salaryRecord.advanceAny||0))-((salaryRecord.pf||0)+(salaryRecord.esic||0)+(salaryRecord.pt||0)+(salaryRecord.tds||0)+(salaryRecord.retention||0)+(salaryRecord.advanceAnyDeduction||0)+(salaryRecord.adjustmentDeduction||0))))})</span></div>
 <div class="net-amt">&#8377; ${formatCurrency(((salaryRecord.basicEarned||0)+(salaryRecord.hraEarned||0)+(salaryRecord.conveyanceEarned||0)+(salaryRecord.specialAllowanceEarned||0)+(salaryRecord.bonusEarned||0)+(salaryRecord.incentiveEarned||0)+(salaryRecord.incentive2Earned||0)+(salaryRecord.adjustmentEarned||salaryRecord.adjustment||0)+(salaryRecord.retentionBonus||0)+(salaryRecord.advanceAnyEarned||salaryRecord.advanceAny||0))-((salaryRecord.pf||0)+(salaryRecord.esic||0)+(salaryRecord.pt||0)+(salaryRecord.tds||0)+(salaryRecord.retention||0)+(salaryRecord.advanceAnyDeduction||0)+(salaryRecord.adjustmentDeduction||0)))}</div>
 </div>
 </div>
@@ -683,14 +682,17 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
     pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true }
   });
 
-  worksheet.columns = [{ width: 18 }, { width: 14 }, { width: 14 }, { width: 18 }, { width: 14 }];
+  worksheet.columns = [{ width: 22 }, { width: 18 }, { width: 18 }, { width: 22 }, { width: 18 }];
 
-  const GREEN = '7CB668';
+  const GREEN = '7CB668';        // Main green for headers
+  const GREEN_LIGHT = 'A8D08D';  // Light green for "Availed" numbers
   const DARK_BLUE = '4A5F7A';
   const GRAY = '64748B';
   const LIGHT_GRAY = 'F8FAFC';
   const WHITE = 'FFFFFF';
   const BORDER_COLOR = 'CBD5E1';
+  const EARNINGS_BLUE = '5B7A9C';    // Earnings header color
+  const DEDUCTIONS_GREEN = '81C784'; // Deductions header color
 
   let currentRow = 1;
 
@@ -699,12 +701,12 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
   headerRow.height = 50;
   worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
   const logoCell = worksheet.getCell(`A${currentRow}`);
-  logoCell.value = 'WYZENTIQA XCELLENCE';
+  logoCell.value = 'WyzentiQa Xcellencce';
   logoCell.font = { name: 'Inter', size: 16, bold: true, color: { argb: DARK_BLUE } };
-  logoCell.alignment = { vertical: 'middle', horizontal: 'left' };
+  logoCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: false };
   logoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
 
-  worksheet.mergeCells(`C${currentRow}:D${currentRow}`);
+  worksheet.mergeCells(`C${currentRow}:E${currentRow}`);
   const titleCell = worksheet.getCell(`C${currentRow}`);
   const monthDate = new Date(month + '-01');
   const monthName = monthDate.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -718,11 +720,21 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
   // Section 01
   const sec1HeaderRow = worksheet.getRow(currentRow);
   sec1HeaderRow.height = 25;
-  worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
-  const sec1Header = worksheet.getCell(`A${currentRow}`);
-  sec1Header.value = '01  EMPLOYEE INFORMATION';
+  
+  // Green box for "01"
+  const sec1Number = worksheet.getCell(`A${currentRow}`);
+  sec1Number.value = '01';
+  sec1Number.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
+  sec1Number.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+  sec1Number.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN } };
+  sec1Number.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  // Blue section for "EMPLOYEE INFORMATION"
+  worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
+  const sec1Header = worksheet.getCell(`B${currentRow}`);
+  sec1Header.value = 'EMPLOYEE INFORMATION';
   sec1Header.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
-  sec1Header.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  sec1Header.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
   sec1Header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_BLUE } };
   sec1Header.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
@@ -743,7 +755,7 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
       cell.value = rowData[i];
       cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: i % 2 === 0 ? GRAY : '1E293B' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? LIGHT_GRAY : WHITE } };
-      cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
       cell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
     }
     currentRow++;
@@ -755,15 +767,15 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
   empCodeLabel.value = 'Employee Code';
   empCodeLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: GRAY } };
   empCodeLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT_GRAY } };
-  empCodeLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  empCodeLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
   empCodeLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
-  worksheet.mergeCells(`B${currentRow}:D${currentRow}`);
+  worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
   const empCodeValue = worksheet.getCell(`B${currentRow}`);
   empCodeValue.value = employee.employeeId;
   empCodeValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
   empCodeValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT_GRAY } };
-  empCodeValue.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  empCodeValue.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
   empCodeValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
   currentRow += 2;
@@ -771,11 +783,21 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
   // Section 02
   const sec2HeaderRow = worksheet.getRow(currentRow);
   sec2HeaderRow.height = 25;
-  worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
-  const sec2Header = worksheet.getCell(`A${currentRow}`);
-  sec2Header.value = '02  LEAVE DETAILS';
+  
+  // Green box for "02"
+  const sec2Number = worksheet.getCell(`A${currentRow}`);
+  sec2Number.value = '02';
+  sec2Number.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
+  sec2Number.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+  sec2Number.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN } };
+  sec2Number.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  // Blue section for "LEAVE DETAILS"
+  worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
+  const sec2Header = worksheet.getCell(`B${currentRow}`);
+  sec2Header.value = 'LEAVE DETAILS';
   sec2Header.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
-  sec2Header.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  sec2Header.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
   sec2Header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_BLUE } };
   sec2Header.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
@@ -783,32 +805,33 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
 
   const leaveHeaderRow = worksheet.getRow(currentRow);
   leaveHeaderRow.height = 20;
-  ['Leave Type', 'Total in Account', 'Availed', 'Subsisting'].forEach((header, idx) => {
+  ['Leave Type', 'Total in Account', 'Availed', 'LWP', 'Subsisting'].forEach((header, idx) => {
     const cell = worksheet.getCell(currentRow, idx + 1);
     cell.value = header;
     cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: WHITE } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: header === 'Availed' ? GREEN : DARK_BLUE } };
-    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
     cell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
   });
 
   currentRow++;
 
   const leaves = [
-    { type: 'PL', total: leaveRecord?.plTotalLeaveInAccount || 0, availed: leaveRecord?.plLeaveAvailed || 0, subsisting: leaveRecord?.plSubsistingLeave || 0 },
-    { type: 'CL', total: leaveRecord?.clTotalLeaveInAccount || 0, availed: leaveRecord?.clLeaveAvailed || 0, subsisting: leaveRecord?.clSubsistingLeave || 0 },
-    { type: 'SL', total: leaveRecord?.slTotalLeaveInAccount || 0, availed: leaveRecord?.slLeaveAvailed || 0, subsisting: leaveRecord?.slSubsistingLeave || 0 }
+    { type: 'PL', total: leaveRecord?.plTotalLeaveInAccount || 0, availed: leaveRecord?.plLeaveAvailed || 0, lwp: leaveRecord?.plLwp || 0, subsisting: leaveRecord?.plSubsistingLeave || 0 },
+    { type: 'CL', total: leaveRecord?.clTotalLeaveInAccount || 0, availed: leaveRecord?.clLeaveAvailed || 0, lwp: leaveRecord?.clLwp || 0, subsisting: leaveRecord?.clSubsistingLeave || 0 },
+    { type: 'SL', total: leaveRecord?.slTotalLeaveInAccount || 0, availed: leaveRecord?.slLeaveAvailed || 0, lwp: leaveRecord?.slLwp || 0, subsisting: leaveRecord?.slSubsistingLeave || 0 }
   ];
 
   leaves.forEach(leave => {
     const row = worksheet.getRow(currentRow);
     row.height = 20;
-    [leave.type, leave.total.toFixed(1), leave.availed.toFixed(1), leave.subsisting.toFixed(1)].forEach((val, idx) => {
+    [leave.type, leave.total.toFixed(1), leave.availed.toFixed(1), leave.lwp.toFixed(1), leave.subsisting.toFixed(1)].forEach((val, idx) => {
       const cell = worksheet.getCell(currentRow, idx + 1);
       cell.value = val;
-      cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: idx === 2 ? GREEN : '1E293B' } };
+      // Match PDF: Availed column (idx 2) is light green, others are dark
+      cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: idx === 2 ? GREEN_LIGHT : '1E293B' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
-      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
       cell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
     });
     currentRow++;
@@ -821,33 +844,34 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
   // Total Leaves Taken row
   const totalLeavesRow = worksheet.getRow(currentRow);
   totalLeavesRow.height = 20;
-  const totalLeavesLabel = worksheet.getCell(currentRow, 1);
+  
+  worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
+  const totalLeavesLabel = worksheet.getCell(`A${currentRow}`);
   totalLeavesLabel.value = 'Total Leaves Taken';
   totalLeavesLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
   totalLeavesLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
-  totalLeavesLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  totalLeavesLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
   totalLeavesLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
-  const totalLeavesValue = worksheet.getCell(currentRow, 2);
+  const totalLeavesValue = worksheet.getCell(`C${currentRow}`);
   totalLeavesValue.value = totalLeavesTaken.toFixed(1);
   totalLeavesValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
   totalLeavesValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
-  totalLeavesValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  totalLeavesValue.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
   totalLeavesValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
-  worksheet.mergeCells(currentRow, 3, currentRow, 3);
-  const lwpLabel = worksheet.getCell(currentRow, 3);
+  const lwpLabel = worksheet.getCell(`D${currentRow}`);
   lwpLabel.value = 'Total Leave Without Pay (LWP)';
-  lwpLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
+  lwpLabel.font = { name: 'Inter', size: 9, bold: true, color: { argb: '1E293B' } };
   lwpLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
-  lwpLabel.alignment = { vertical: 'middle', horizontal: 'center' };
+  lwpLabel.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
   lwpLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
-  const lwpValue = worksheet.getCell(currentRow, 4);
+  const lwpValue = worksheet.getCell(`E${currentRow}`);
   lwpValue.value = totalLwp.toFixed(1);
   lwpValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
   lwpValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
-  lwpValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  lwpValue.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
   lwpValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
   currentRow++;
@@ -855,33 +879,34 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
   // Total Present Days row
   const presentDaysRow = worksheet.getRow(currentRow);
   presentDaysRow.height = 20;
-  const presentDaysLabel = worksheet.getCell(currentRow, 1);
+  
+  worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
+  const presentDaysLabel = worksheet.getCell(`A${currentRow}`);
   presentDaysLabel.value = 'Total Present Days';
   presentDaysLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
   presentDaysLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
-  presentDaysLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  presentDaysLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
   presentDaysLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
-  const presentDaysValue = worksheet.getCell(currentRow, 2);
+  const presentDaysValue = worksheet.getCell(`C${currentRow}`);
   presentDaysValue.value = (salaryRecord.actualWorkingDays || 0).toFixed(1);
   presentDaysValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
   presentDaysValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
-  presentDaysValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  presentDaysValue.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
   presentDaysValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
-  worksheet.mergeCells(currentRow, 3, currentRow, 3);
-  const payableDaysLabel = worksheet.getCell(currentRow, 3);
+  const payableDaysLabel = worksheet.getCell(`D${currentRow}`);
   payableDaysLabel.value = 'Total Days Payable';
   payableDaysLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
   payableDaysLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
-  payableDaysLabel.alignment = { vertical: 'middle', horizontal: 'center' };
+  payableDaysLabel.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
   payableDaysLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
-  const payableDaysValue = worksheet.getCell(currentRow, 4);
+  const payableDaysValue = worksheet.getCell(`E${currentRow}`);
   payableDaysValue.value = (salaryRecord.actualWorkingDays || 0).toFixed(1);
   payableDaysValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
   payableDaysValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F9EC' } };
-  payableDaysValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  payableDaysValue.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
   payableDaysValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
   currentRow++;
@@ -891,28 +916,44 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
   // === SECTION 03: SALARY DETAILS ===
   const sec3HeaderRow = worksheet.getRow(currentRow);
   sec3HeaderRow.height = 25;
-  worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
-  const sec3Header = worksheet.getCell(`A${currentRow}`);
-  sec3Header.value = '03  SALARY DETAILS';
+  
+  // Green box for "03"
+  const sec3Number = worksheet.getCell(`A${currentRow}`);
+  sec3Number.value = '03';
+  sec3Number.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
+  sec3Number.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+  sec3Number.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN } };
+  sec3Number.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  // Blue section for "SALARY DETAILS"
+  worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
+  const sec3Header = worksheet.getCell(`B${currentRow}`);
+  sec3Header.value = 'SALARY DETAILS';
   sec3Header.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
-  sec3Header.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  sec3Header.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
   sec3Header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_BLUE } };
   sec3Header.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
   currentRow++;
 
-  // Earnings and Deductions headers
+  // Earnings and Deductions headers with GAP in between
   const salaryHeaderRow = worksheet.getRow(currentRow);
   salaryHeaderRow.height = 25;
   
-  // Earnings header (A-C, 3 columns)
-  worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+  // Earnings header (A-B, 2 columns)
+  worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
   const earningsHeader = worksheet.getCell(`A${currentRow}`);
   earningsHeader.value = 'EARNINGS';
   earningsHeader.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
   earningsHeader.alignment = { vertical: 'middle', horizontal: 'center' };
-  earningsHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '546E7A' } };
+  earningsHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EARNINGS_BLUE } };
   earningsHeader.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  // GAP column (C) - empty with white background
+  const gapCell = worksheet.getCell(`C${currentRow}`);
+  gapCell.value = '';
+  gapCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+  gapCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
   // Deductions header (D-E, 2 columns)
   worksheet.mergeCells(`D${currentRow}:E${currentRow}`);
@@ -920,23 +961,52 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
   deductionsHeader.value = 'DEDUCTIONS';
   deductionsHeader.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
   deductionsHeader.alignment = { vertical: 'middle', horizontal: 'center' };
-  deductionsHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '81C784' } };
+  deductionsHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DEDUCTIONS_GREEN } };
   deductionsHeader.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
   currentRow++;
 
-  // Column headers
+  // Column headers (now: Component, Actual/Earned, GAP, Component, Amount)
   const colHeaderRow = worksheet.getRow(currentRow);
   colHeaderRow.height = 20;
-  ['Component', 'Actual (₹)', 'Earned (₹)', 'Component', 'Amount (₹)'].forEach((header, idx) => {
-    const colIdx = idx < 3 ? idx + 1 : idx;
-    const cell = worksheet.getCell(currentRow, colIdx);
-    cell.value = header;
-    cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: WHITE } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx < 3 ? '546E7A' : '81C784' } };
-    cell.alignment = { vertical: 'middle', horizontal: 'center' };
-    cell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
-  });
+  
+  // Column 1: Component (Earnings)
+  const col1 = worksheet.getCell(currentRow, 1);
+  col1.value = 'Component';
+  col1.font = { name: 'Inter', size: 10, bold: true, color: { argb: WHITE } };
+  col1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EARNINGS_BLUE } };
+  col1.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+  col1.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  // Column 2: Actual (₹) / Earned (₹) - merged header
+  const col2 = worksheet.getCell(currentRow, 2);
+  col2.value = 'Actual (₹) / Earned (₹)';
+  col2.font = { name: 'Inter', size: 9, bold: true, color: { argb: WHITE } };
+  col2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EARNINGS_BLUE } };
+  col2.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+  col2.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  // Column 3: GAP
+  const col3 = worksheet.getCell(currentRow, 3);
+  col3.value = '';
+  col3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+  col3.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  // Column 4: Component (Deductions)
+  const col4 = worksheet.getCell(currentRow, 4);
+  col4.value = 'Component';
+  col4.font = { name: 'Inter', size: 10, bold: true, color: { argb: WHITE } };
+  col4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DEDUCTIONS_GREEN } };
+  col4.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+  col4.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  // Column 5: Amount (₹)
+  const col5 = worksheet.getCell(currentRow, 5);
+  col5.value = 'Amount (₹)';
+  col5.font = { name: 'Inter', size: 10, bold: true, color: { argb: WHITE } };
+  col5.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DEDUCTIONS_GREEN } };
+  col5.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+  col5.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
   currentRow++;
 
@@ -966,9 +1036,9 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
     { label: 'Adjustment', amount: salaryRecord.adjustmentDeduction },
   ];
 
-  // Filter non-zero entries
-  const earnings = earningsAll.filter(e => e.actual !== 0 || e.earned !== 0);
-  const deductions = deductionsAll.filter(d => d.amount !== 0);
+  // Show ALL entries (including 0.00) - exactly like PDF
+  const earnings = earningsAll;
+  const deductions = deductionsAll;
 
   const maxRows = Math.max(earnings.length, deductions.length);
 
@@ -976,110 +1046,147 @@ async function generateStyledExcelForEmployee(employee: any, salaryRecord: any, 
     const row = worksheet.getRow(currentRow);
     row.height = 20;
 
-    // Earnings columns (3 columns: Component, Actual, Earned)
+    // Earnings columns (2 columns: Component, Actual/Earned)
     if (i < earnings.length) {
       const labelCell = worksheet.getCell(currentRow, 1);
       labelCell.value = earnings[i].label;
       labelCell.font = { name: 'Inter', size: 10, bold: false, color: { argb: '334155' } };
-      labelCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      labelCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
       labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
       labelCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
-      const actualCell = worksheet.getCell(currentRow, 2);
-      actualCell.value = formatCurrency(earnings[i].actual);
-      actualCell.font = { name: 'Inter', size: 10, bold: false, color: { argb: '334155' } };
-      actualCell.alignment = { vertical: 'middle', horizontal: 'center' };
-      actualCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
-      actualCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
-
-      const earnedCell = worksheet.getCell(currentRow, 3);
-      earnedCell.value = formatCurrency(earnings[i].earned);
-      earnedCell.font = { name: 'Inter', size: 10, bold: false, color: { argb: '334155' } };
-      earnedCell.alignment = { vertical: 'middle', horizontal: 'center' };
-      earnedCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
-      earnedCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+      const valueCell = worksheet.getCell(currentRow, 2);
+      valueCell.value = `${formatCurrency(earnings[i].actual)} / ${formatCurrency(earnings[i].earned)}`;
+      valueCell.font = { name: 'Inter', size: 9, bold: false, color: { argb: '334155' } };
+      valueCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+      valueCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+      valueCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+    } else {
+      // Fill empty cells for alignment
+      for (let col = 1; col <= 2; col++) {
+        const emptyCell = worksheet.getCell(currentRow, col);
+        emptyCell.value = '';
+        emptyCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+        emptyCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+      }
     }
+
+    // GAP column (column 3)
+    const gapCell = worksheet.getCell(currentRow, 3);
+    gapCell.value = '';
+    gapCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+    gapCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
     // Deductions columns (2 columns: Component, Amount)
     if (i < deductions.length) {
       const labelCell = worksheet.getCell(currentRow, 4);
       labelCell.value = deductions[i].label;
       labelCell.font = { name: 'Inter', size: 10, bold: false, color: { argb: '334155' } };
-      labelCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      labelCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
       labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
       labelCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
       const valueCell = worksheet.getCell(currentRow, 5);
       valueCell.value = formatCurrency(deductions[i].amount);
       valueCell.font = { name: 'Inter', size: 10, bold: false, color: { argb: '334155' } };
-      valueCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      valueCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
       valueCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
       valueCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+    } else {
+      // Fill empty cells for alignment
+      for (let col = 4; col <= 5; col++) {
+        const emptyCell = worksheet.getCell(currentRow, col);
+        emptyCell.value = '';
+        emptyCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+        emptyCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+      }
     }
 
     currentRow++;
   }
 
-  // Total row (now with 5 columns)
+  // Total row (Gross Earnings | GAP | Total Deductions)
   const totalRow = worksheet.getRow(currentRow);
   totalRow.height = 22;
 
   const grossEarningsLabel = worksheet.getCell(currentRow, 1);
   grossEarningsLabel.value = 'Gross Earnings';
   grossEarningsLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
-  grossEarningsLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  grossEarningsLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
   grossEarningsLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF3E8' } };
   grossEarningsLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
-  const grossActualValue = worksheet.getCell(currentRow, 2);
-  grossActualValue.value = formatCurrency(salaryRecord.actualGross);
-  grossActualValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
-  grossActualValue.alignment = { vertical: 'middle', horizontal: 'center' };
-  grossActualValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF3E8' } };
-  grossActualValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+  const grossValue = worksheet.getCell(currentRow, 2);
+  grossValue.value = `${formatCurrency(salaryRecord.actualGross)} / ${formatCurrency(salaryRecord.earnedGross)}`;
+  grossValue.font = { name: 'Inter', size: 9, bold: true, color: { argb: '1E293B' } };
+  grossValue.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+  grossValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF3E8' } };
+  grossValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
-  const grossEarnedValue = worksheet.getCell(currentRow, 3);
-  grossEarnedValue.value = formatCurrency(salaryRecord.earnedGross);
-  grossEarnedValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
-  grossEarnedValue.alignment = { vertical: 'middle', horizontal: 'center' };
-  grossEarnedValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF3E8' } };
-  grossEarnedValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+  // GAP
+  const gapTotalCell = worksheet.getCell(currentRow, 3);
+  gapTotalCell.value = '';
+  gapTotalCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } };
+  gapTotalCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
   const totalDeductionsLabel = worksheet.getCell(currentRow, 4);
-  totalDeductionsLabel.value = 'Total Deductions';
+  totalDeductionsLabel.value = 'Total Deduction';
   totalDeductionsLabel.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
-  totalDeductionsLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  totalDeductionsLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
   totalDeductionsLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF3E8' } };
   totalDeductionsLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
   const totalDeductionsValue = worksheet.getCell(currentRow, 5);
   totalDeductionsValue.value = formatCurrency(salaryRecord.totalDeduction);
   totalDeductionsValue.font = { name: 'Inter', size: 10, bold: true, color: { argb: '1E293B' } };
-  totalDeductionsValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  totalDeductionsValue.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
   totalDeductionsValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF3E8' } };
   totalDeductionsValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
   currentRow += 2;
 
-  // Net Salary row
+  // Net Salary row (Section 04)
   const netSalaryRow = worksheet.getRow(currentRow);
   netSalaryRow.height = 30;
 
-  worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
-  const netSalaryLabel = worksheet.getCell(`A${currentRow}`);
-  netSalaryLabel.value = '04  NET SALARY CREDITED';
+  // Green box for "04"
+  const sec4Number = worksheet.getCell(`A${currentRow}`);
+  sec4Number.value = '04';
+  sec4Number.font = { name: 'Inter', size: 11, bold: true, color: { argb: WHITE } };
+  sec4Number.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+  sec4Number.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN } };
+  sec4Number.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  // Blue section for "NET SALARY CREDITED"
+  worksheet.mergeCells(`B${currentRow}:C${currentRow}`);
+  const netSalaryLabel = worksheet.getCell(`B${currentRow}`);
+  netSalaryLabel.value = 'NET SALARY CREDITED';
   netSalaryLabel.font = { name: 'Inter', size: 12, bold: true, color: { argb: WHITE } };
-  netSalaryLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  netSalaryLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: false };
   netSalaryLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_BLUE } };
   netSalaryLabel.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
-  worksheet.mergeCells(`C${currentRow}:D${currentRow}`);
-  const netSalaryValue = worksheet.getCell(`C${currentRow}`);
+  // Green section for net salary value
+  worksheet.mergeCells(`D${currentRow}:E${currentRow}`);
+  const netSalaryValue = worksheet.getCell(`D${currentRow}`);
   netSalaryValue.value = `₹ ${formatCurrency(salaryRecord.netSalary)}`;
   netSalaryValue.font = { name: 'Inter', size: 16, bold: true, color: { argb: WHITE } };
-  netSalaryValue.alignment = { vertical: 'middle', horizontal: 'center' };
+  netSalaryValue.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
   netSalaryValue.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN } };
   netSalaryValue.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
+
+  currentRow += 2;
+
+  // Footer with company address
+  const footerRow = worksheet.getRow(currentRow);
+  footerRow.height = 40;
+  worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
+  const footerCell = worksheet.getCell(`A${currentRow}`);
+  footerCell.value = 'WyzentiQa Xcellencce\nB-701, Ganesh Glory 11, Jagatpur Road, S.G. Highway, Ahmedabad - 382470, Gujarat, India\nPhone: +91 79 40329292 | Email: info@wyzentiqa.com';
+  footerCell.font = { name: 'Inter', size: 8, bold: false, color: { argb: GRAY } };
+  footerCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+  footerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT_GRAY } };
+  footerCell.border = { top: { style: 'thin', color: { argb: BORDER_COLOR } }, left: { style: 'thin', color: { argb: BORDER_COLOR } }, right: { style: 'thin', color: { argb: BORDER_COLOR } }, bottom: { style: 'thin', color: { argb: BORDER_COLOR } } };
 
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);
