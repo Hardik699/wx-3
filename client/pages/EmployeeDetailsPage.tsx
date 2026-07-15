@@ -29,6 +29,7 @@ import {
   Upload,
   Trash2,
   Eye,
+  EyeOff,
   DollarSign,
   Plus,
   Image,
@@ -558,6 +559,7 @@ export default function EmployeeDetailsPage() {
   });
 
   const [slipPasswordInput, setSlipPasswordInput] = useState("");
+  const [showSlipPassword, setShowSlipPassword] = useState(false);
 
   // Helper function to auto-calculate salary components
   const calculateSalaryComponents = (basicSalary: number) => {
@@ -2966,14 +2968,27 @@ export default function EmployeeDetailsPage() {
             <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
                 <Label className="text-slate-300">Password (minimum 4 characters)</Label>
-                <Input
-                  type="password"
-                  value={slipPasswordInput}
-                  onChange={(e) => setSlipPasswordInput(e.target.value)}
-                  placeholder="Enter slip password"
-                  className="bg-slate-800 border-slate-600 text-white"
-                  autoFocus
-                />
+                <div className="relative">
+                  <Input
+                    type={showSlipPassword ? "text" : "password"}
+                    value={slipPasswordInput}
+                    onChange={(e) => setSlipPasswordInput(e.target.value)}
+                    placeholder="Enter slip password"
+                    className="bg-slate-800 border-slate-600 text-white pr-10"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSlipPassword(!showSlipPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  >
+                    {showSlipPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 <p className="text-xs text-slate-400">
                   This password will be used to open all salary slip PDFs for this employee.
                   It will not be visible anywhere after saving.
